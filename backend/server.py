@@ -1,58 +1,573 @@
-from fastapi import FastAPI, APIRouter
-from dotenv import load_dotenv
-from starlette.middleware.cors import CORSMiddleware
-from motor.motor_asyncio import AsyncIOMotorClient
-import os
-import logging
-from pathlib import Path
-from pydantic import BaseModel, Field
-from typing import List
-import uuid
-from datetime import datetime
+"""DBS FACTORY - Gate Management System Backend.
 
+FastAPI + MongoDB + JWT auth (admin / guard roles).
+All routes are mounted under /api so they flow through the ingress.
+"""
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from typing import List, Optional
+import logging
+import os
+import re
+import uuid
+
+import jwt
+from bson import ObjectId  # noqa: F401 (kept for future use)
+from dotenv import load_dotenv
+from fastapi import Depends, FastAPI, HTTPException, Query, status
+from fastapi.security import OAuth2PasswordBearer
+from motor.motor_asyncio import AsyncIOMotorClient
+from passlib.context import CryptContext
+from pydantic import BaseModel, Field
+from starlette.middleware.cors import CORSMiddleware
+
+
+# ---------------------------------------------------------------------------
+# Config / globals
+# ---------------------------------------------------------------------------
 
 ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / '.env')
+load_dotenv(ROOT_DIR / ".env")
 
-# MongoDB connection
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+MONGO_URL = os.environ["MONGO_URL"]
+DB_NAME = os.environ.get("DB_NAME", "dbs_factory")
+JWT_SECRET = os.environ.get("JWT_SECRET", "dbs-factory-dev-secret-change-me")
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRE_HOURS = 12
 
-# Create the main app without a prefix
-app = FastAPI()
+client = AsyncIOMotorClient(MONGO_URL)
+db = client[DB_NAME]
 
-# Create a router with the /api prefix
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=True)
+
+app = FastAPI(title="DBS Factory Gate Management")
+api = FastAPI()  # not used; routes below use APIRouter via app
+
+from fastapi import APIRouter  # noqa: E402
+
 api_router = APIRouter(prefix="/api")
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("dbs_factory")
 
-# Define Models
-class StatusCheck(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    client_name: str
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
 
-class StatusCheckCreate(BaseModel):
-    client_name: str
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 
-# Add your routes to the router instead of directly to app
-@api_router.get("/")
-async def root():
-    return {"message": "Hello World"}
+def utcnow() -> datetime:
+    return datetime.now(timezone.utc)
 
-@api_router.post("/status", response_model=StatusCheck)
-async def create_status_check(input: StatusCheckCreate):
-    status_dict = input.dict()
-    status_obj = StatusCheck(**status_dict)
-    _ = await db.status_checks.insert_one(status_obj.dict())
-    return status_obj
 
-@api_router.get("/status", response_model=List[StatusCheck])
-async def get_status_checks():
-    status_checks = await db.status_checks.find().to_list(1000)
-    return [StatusCheck(**status_check) for status_check in status_checks]
+def hash_password(p: str) -> str:
+    return pwd_context.hash(p)
 
-# Include the router in the main app
+
+def verify_password(plain: str, hashed: str) -> bool:
+    try:
+        return pwd_context.verify(plain, hashed)
+    except Exception:
+        return False
+
+
+def create_token(user: dict) -> str:
+    now = utcnow()
+    payload = {
+        "sub": user["id"],
+        "username": user["username"],
+        "role": user["role"],
+        "name": user.get("name", user["username"]),
+        "iat": int(now.timestamp()),
+        "exp": int((now + timedelta(hours=JWT_EXPIRE_HOURS)).timestamp()),
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+
+async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token")
+    user = await db.users.find_one({"id": payload.get("sub")}, {"_id": 0, "password_hash": 0})
+    if not user:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "User not found")
+    return user
+
+
+def require_admin(user: dict = Depends(get_current_user)) -> dict:
+    if user.get("role") != "admin":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Admin only")
+    return user
+
+
+async def ensure_indexes() -> None:
+    await db.users.create_index("username", unique=True)
+    await db.labours.create_index("labour_id", unique=True)
+    await db.counters.create_index("name", unique=True)
+
+
+async def next_labour_id() -> str:
+    res = await db.counters.find_one_and_update(
+        {"name": "labour"},
+        {"$inc": {"value": 1}},
+        upsert=True,
+        return_document=True,
+    )
+    n = res["value"] if res else 1
+    return f"LAB-{n:06d}"
+
+
+# ---------------------------------------------------------------------------
+# Models
+# ---------------------------------------------------------------------------
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: dict
+
+
+class UserPublic(BaseModel):
+    id: str
+    name: str
+    username: str
+    role: str
+
+
+class VisitorIn(BaseModel):
+    visitor_name: str
+    mobile_number: Optional[str] = None
+    purpose: str
+    photo_base64: Optional[str] = None
+    gate_name: Optional[str] = None
+
+
+class Visitor(BaseModel):
+    id: str
+    visitor_name: str
+    mobile_number: Optional[str] = None
+    purpose: str
+    photo_base64: Optional[str] = None
+    gate_name: Optional[str] = None
+    entry_datetime: datetime
+    created_by: str
+    created_by_name: str
+
+
+class ContractorIn(BaseModel):
+    contractor_name: str
+    contact_person: Optional[str] = None
+    mobile_number: Optional[str] = None
+    address: Optional[str] = None
+
+
+class Contractor(ContractorIn):
+    id: str
+    created_at: datetime
+
+
+class LabourIn(BaseModel):
+    labour_name: str
+    contractor_id: str
+    category: str
+    photo_base64: str
+    aadhaar_number: Optional[str] = None
+    mobile_number: Optional[str] = None
+
+
+class Labour(BaseModel):
+    id: str
+    labour_id: str
+    labour_name: str
+    contractor_id: str
+    contractor_name: Optional[str] = None
+    category: str
+    photo_base64: str
+    aadhaar_number: Optional[str] = None
+    mobile_number: Optional[str] = None
+    created_at: datetime
+
+
+class AttendanceRecord(BaseModel):
+    id: str
+    labour_id: str
+    labour_name: str
+    contractor_name: Optional[str] = None
+    category: str
+    check_in_time: datetime
+    check_out_time: Optional[datetime] = None
+    total_hours: Optional[float] = None
+    gate_name: Optional[str] = None
+    status: str  # "inside" or "checked_out"
+
+
+# ---------------------------------------------------------------------------
+# Auth
+# ---------------------------------------------------------------------------
+
+@api_router.post("/auth/login", response_model=TokenResponse)
+async def login(body: LoginRequest):
+    user = await db.users.find_one({"username": body.username.lower().strip()})
+    if not user or not verify_password(body.password, user["password_hash"]):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid username or password")
+    public = {
+        "id": user["id"],
+        "name": user["name"],
+        "username": user["username"],
+        "role": user["role"],
+    }
+    token = create_token(public)
+    return TokenResponse(access_token=token, user=public)
+
+
+@api_router.get("/auth/me", response_model=UserPublic)
+async def me(user: dict = Depends(get_current_user)):
+    return UserPublic(**{k: user[k] for k in ("id", "name", "username", "role")})
+
+
+# ---------------------------------------------------------------------------
+# Visitors
+# ---------------------------------------------------------------------------
+
+@api_router.post("/visitors", response_model=Visitor)
+async def create_visitor(body: VisitorIn, user: dict = Depends(get_current_user)):
+    doc = {
+        "id": str(uuid.uuid4()),
+        **body.dict(),
+        "entry_datetime": utcnow(),
+        "created_by": user["id"],
+        "created_by_name": user["name"],
+    }
+    await db.visitors.insert_one(doc)
+    doc.pop("_id", None)
+    return Visitor(**doc)
+
+
+@api_router.get("/visitors", response_model=List[Visitor])
+async def list_visitors(
+    start: Optional[str] = None,
+    end: Optional[str] = None,
+    visitor_name: Optional[str] = None,
+    mobile_number: Optional[str] = None,
+    purpose: Optional[str] = None,
+    limit: int = Query(500, le=2000),
+    _: dict = Depends(get_current_user),
+):
+    q: dict = {}
+    if start or end:
+        q["entry_datetime"] = {}
+        if start:
+            q["entry_datetime"]["$gte"] = datetime.fromisoformat(start)
+        if end:
+            q["entry_datetime"]["$lte"] = datetime.fromisoformat(end)
+    if visitor_name:
+        q["visitor_name"] = {"$regex": re.escape(visitor_name), "$options": "i"}
+    if mobile_number:
+        q["mobile_number"] = {"$regex": re.escape(mobile_number)}
+    if purpose:
+        q["purpose"] = {"$regex": re.escape(purpose), "$options": "i"}
+    cursor = db.visitors.find(q, {"_id": 0}).sort("entry_datetime", -1).limit(limit)
+    return [Visitor(**d) async for d in cursor]
+
+
+# ---------------------------------------------------------------------------
+# Contractors
+# ---------------------------------------------------------------------------
+
+@api_router.post("/contractors", response_model=Contractor)
+async def create_contractor(body: ContractorIn, _: dict = Depends(require_admin)):
+    doc = {"id": str(uuid.uuid4()), **body.dict(), "created_at": utcnow()}
+    await db.contractors.insert_one(doc)
+    doc.pop("_id", None)
+    return Contractor(**doc)
+
+
+@api_router.get("/contractors", response_model=List[Contractor])
+async def list_contractors(_: dict = Depends(get_current_user)):
+    cursor = db.contractors.find({}, {"_id": 0}).sort("contractor_name", 1)
+    return [Contractor(**d) async for d in cursor]
+
+
+@api_router.put("/contractors/{cid}", response_model=Contractor)
+async def update_contractor(cid: str, body: ContractorIn, _: dict = Depends(require_admin)):
+    res = await db.contractors.find_one_and_update(
+        {"id": cid},
+        {"$set": body.dict()},
+        return_document=True,
+        projection={"_id": 0},
+    )
+    if not res:
+        raise HTTPException(404, "Contractor not found")
+    return Contractor(**res)
+
+
+@api_router.delete("/contractors/{cid}")
+async def delete_contractor(cid: str, _: dict = Depends(require_admin)):
+    res = await db.contractors.delete_one({"id": cid})
+    if res.deleted_count == 0:
+        raise HTTPException(404, "Contractor not found")
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# Labours
+# ---------------------------------------------------------------------------
+
+async def _attach_contractor_name(doc: dict) -> dict:
+    c = await db.contractors.find_one({"id": doc.get("contractor_id")}, {"_id": 0, "contractor_name": 1})
+    doc["contractor_name"] = c["contractor_name"] if c else None
+    return doc
+
+
+@api_router.post("/labours", response_model=Labour)
+async def create_labour(body: LabourIn, _: dict = Depends(get_current_user)):
+    # uniqueness: if aadhaar provided, ensure not duplicated
+    if body.aadhaar_number:
+        existing = await db.labours.find_one({"aadhaar_number": body.aadhaar_number})
+        if existing:
+            raise HTTPException(400, f"Labour with this Aadhaar already exists ({existing['labour_id']})")
+    labour_id = await next_labour_id()
+    doc = {
+        "id": str(uuid.uuid4()),
+        "labour_id": labour_id,
+        **body.dict(),
+        "created_at": utcnow(),
+    }
+    await db.labours.insert_one(doc)
+    doc.pop("_id", None)
+    doc = await _attach_contractor_name(doc)
+    return Labour(**doc)
+
+
+@api_router.get("/labours", response_model=List[Labour])
+async def list_labours(
+    q: Optional[str] = None,
+    contractor_id: Optional[str] = None,
+    category: Optional[str] = None,
+    limit: int = Query(500, le=2000),
+    _: dict = Depends(get_current_user),
+):
+    flt: dict = {}
+    if contractor_id:
+        flt["contractor_id"] = contractor_id
+    if category:
+        flt["category"] = category
+    if q:
+        rx = {"$regex": re.escape(q), "$options": "i"}
+        flt["$or"] = [
+            {"labour_id": rx},
+            {"labour_name": rx},
+            {"aadhaar_number": rx},
+            {"mobile_number": rx},
+        ]
+    cursor = db.labours.find(flt, {"_id": 0}).sort("created_at", -1).limit(limit)
+    out = []
+    async for d in cursor:
+        out.append(Labour(**(await _attach_contractor_name(d))))
+    return out
+
+
+@api_router.get("/labours/{labour_id}", response_model=Labour)
+async def get_labour(labour_id: str, _: dict = Depends(get_current_user)):
+    d = await db.labours.find_one({"labour_id": labour_id}, {"_id": 0})
+    if not d:
+        raise HTTPException(404, "Labour not found")
+    d = await _attach_contractor_name(d)
+    return Labour(**d)
+
+
+@api_router.post("/labours/{labour_id}/checkin", response_model=AttendanceRecord)
+async def check_in(labour_id: str, gate_name: Optional[str] = None, user: dict = Depends(get_current_user)):
+    labour = await db.labours.find_one({"labour_id": labour_id}, {"_id": 0})
+    if not labour:
+        raise HTTPException(404, "Labour not found")
+    open_rec = await db.attendance.find_one({"labour_id": labour_id, "check_out_time": None})
+    if open_rec:
+        raise HTTPException(400, "Labour is already inside the factory")
+    contractor = await db.contractors.find_one({"id": labour["contractor_id"]}, {"_id": 0})
+    rec = {
+        "id": str(uuid.uuid4()),
+        "labour_id": labour_id,
+        "labour_name": labour["labour_name"],
+        "contractor_name": contractor["contractor_name"] if contractor else None,
+        "category": labour["category"],
+        "check_in_time": utcnow(),
+        "check_out_time": None,
+        "total_hours": None,
+        "gate_name": gate_name,
+        "status": "inside",
+        "guard_id": user["id"],
+        "guard_name": user["name"],
+    }
+    await db.attendance.insert_one(rec)
+    rec.pop("_id", None)
+    return AttendanceRecord(**rec)
+
+
+@api_router.post("/labours/{labour_id}/checkout", response_model=AttendanceRecord)
+async def check_out(labour_id: str, gate_name: Optional[str] = None, user: dict = Depends(get_current_user)):
+    rec = await db.attendance.find_one({"labour_id": labour_id, "check_out_time": None})
+    if not rec:
+        raise HTTPException(400, "Labour is not currently inside")
+    now = utcnow()
+    check_in_time = rec["check_in_time"]
+    if check_in_time.tzinfo is None:
+        check_in_time = check_in_time.replace(tzinfo=timezone.utc)
+    hours = round((now - check_in_time).total_seconds() / 3600, 2)
+    await db.attendance.update_one(
+        {"id": rec["id"]},
+        {"$set": {
+            "check_out_time": now,
+            "total_hours": hours,
+            "status": "checked_out",
+            "checkout_gate": gate_name,
+            "checkout_guard_id": user["id"],
+            "checkout_guard_name": user["name"],
+        }},
+    )
+    rec = await db.attendance.find_one({"id": rec["id"]}, {"_id": 0})
+    return AttendanceRecord(**rec)
+
+
+# ---------------------------------------------------------------------------
+# Attendance / occupancy / reports
+# ---------------------------------------------------------------------------
+
+@api_router.get("/attendance/inside")
+async def currently_inside(_: dict = Depends(get_current_user)):
+    cursor = db.attendance.find({"check_out_time": None}, {"_id": 0}).sort("check_in_time", -1)
+    records = [d async for d in cursor]
+    # Enrich with labour photo
+    out = []
+    for r in records:
+        lab = await db.labours.find_one({"labour_id": r["labour_id"]}, {"_id": 0, "photo_base64": 1})
+        r["photo_base64"] = lab["photo_base64"] if lab else None
+        out.append(r)
+    return out
+
+
+@api_router.get("/attendance")
+async def attendance_report(
+    start: Optional[str] = None,
+    end: Optional[str] = None,
+    labour_id: Optional[str] = None,
+    labour_name: Optional[str] = None,
+    contractor_id: Optional[str] = None,
+    category: Optional[str] = None,
+    limit: int = Query(1000, le=5000),
+    _: dict = Depends(get_current_user),
+):
+    flt: dict = {}
+    if start or end:
+        flt["check_in_time"] = {}
+        if start:
+            flt["check_in_time"]["$gte"] = datetime.fromisoformat(start)
+        if end:
+            flt["check_in_time"]["$lte"] = datetime.fromisoformat(end)
+    if labour_id:
+        flt["labour_id"] = {"$regex": re.escape(labour_id), "$options": "i"}
+    if labour_name:
+        flt["labour_name"] = {"$regex": re.escape(labour_name), "$options": "i"}
+    if category:
+        flt["category"] = category
+    cursor = db.attendance.find(flt, {"_id": 0}).sort("check_in_time", -1).limit(limit)
+    rows = [d async for d in cursor]
+    if contractor_id:
+        c = await db.contractors.find_one({"id": contractor_id}, {"_id": 0, "contractor_name": 1})
+        if c:
+            rows = [r for r in rows if r.get("contractor_name") == c["contractor_name"]]
+    return rows
+
+
+# ---------------------------------------------------------------------------
+# Dashboard stats
+# ---------------------------------------------------------------------------
+
+def _start_of_today_utc() -> datetime:
+    now = utcnow()
+    return now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+@api_router.get("/dashboard/stats")
+async def dashboard_stats(_: dict = Depends(require_admin)):
+    sod = _start_of_today_utc()
+    visitors_today = await db.visitors.count_documents({"entry_datetime": {"$gte": sod}})
+    inside = await db.attendance.count_documents({"check_out_time": None})
+    checked_out_today = await db.attendance.count_documents({
+        "check_out_time": {"$gte": sod},
+    })
+    total_labour = await db.labours.count_documents({})
+    contractor_count = await db.contractors.count_documents({})
+
+    # per-contractor labour counts
+    pipeline = [
+        {"$group": {"_id": "$contractor_id", "count": {"$sum": 1}}},
+    ]
+    grouped = {}
+    async for row in db.labours.aggregate(pipeline):
+        grouped[row["_id"]] = row["count"]
+    contractors = []
+    async for c in db.contractors.find({}, {"_id": 0}):
+        c["labour_count"] = grouped.get(c["id"], 0)
+        # daily attendance count
+        c["attendance_today"] = await db.attendance.count_documents({
+            "check_in_time": {"$gte": sod},
+            "contractor_name": c["contractor_name"],
+        })
+        contractors.append(c)
+
+    return {
+        "visitors_today": visitors_today,
+        "labour_inside": inside,
+        "checked_out_today": checked_out_today,
+        "total_labour": total_labour,
+        "contractor_count": contractor_count,
+        "contractors": contractors,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Seed default admin on startup (idempotent)
+# ---------------------------------------------------------------------------
+
+@app.on_event("startup")
+async def on_startup():
+    await ensure_indexes()
+    if not await db.users.find_one({"username": "admin"}):
+        await db.users.insert_one({
+            "id": str(uuid.uuid4()),
+            "name": "Administrator",
+            "username": "admin",
+            "password_hash": hash_password("admin123"),
+            "role": "admin",
+            "created_at": utcnow(),
+        })
+        logger.info("Seeded default admin user (admin / admin123)")
+    if not await db.users.find_one({"username": "guard"}):
+        await db.users.insert_one({
+            "id": str(uuid.uuid4()),
+            "name": "Gate Guard",
+            "username": "guard",
+            "password_hash": hash_password("guard123"),
+            "role": "guard",
+            "created_at": utcnow(),
+        })
+        logger.info("Seeded default guard user (guard / guard123)")
+
+
+@app.on_event("shutdown")
+async def on_shutdown():
+    client.close()
+
+
 app.include_router(api_router)
 
 app.add_middleware(
@@ -62,14 +577,3 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
-
-@app.on_event("shutdown")
-async def shutdown_db_client():
-    client.close()
