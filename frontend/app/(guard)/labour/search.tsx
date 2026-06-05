@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 10,
   },
-  rowId: { fontSize: 12, fontWeight: "800", color: colors.primary, backgroundColor: colors.secondary, alignSelf: "flex-start", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 2, letterSpacing: 1 },
+  rowId: { fontSize: 12, fontWeight: "800", color: colors.text, backgroundColor: colors.primary, alignSelf: "flex-start", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 2, letterSpacing: 1 },
   rowName: { fontSize: 17, fontWeight: "800", color: colors.text, marginTop: 6 },
   rowMeta: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
   empty: { textAlign: "center", color: colors.textMuted, marginTop: 32, fontWeight: "600" },

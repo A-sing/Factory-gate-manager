@@ -65,8 +65,8 @@ export default function Dashboard() {
     { label: "Visitors Today", value: stats?.visitors_today ?? 0, icon: <ClipboardList size={22} color={colors.primary} strokeWidth={3} />, bg: colors.secondary, fg: "#fff" },
     { label: "Labour Inside", value: stats?.labour_inside ?? 0, icon: <LogIn size={22} color={colors.secondary} strokeWidth={3} />, bg: colors.primary, fg: colors.secondary },
     { label: "Checked Out Today", value: stats?.checked_out_today ?? 0, icon: <LogOut size={22} color="#fff" strokeWidth={3} />, bg: colors.info, fg: "#fff" },
-    { label: "Total Labour", value: stats?.total_labour ?? 0, icon: <Users size={22} color="#fff" strokeWidth={3} />, bg: colors.success, fg: "#fff" },
-    { label: "Contractors", value: stats?.contractor_count ?? 0, icon: <Building2 size={22} color="#fff" strokeWidth={3} />, bg: colors.text, fg: "#fff" },
+    { label: "Total Labour", value: stats?.total_labour ?? 0, icon: <Users size={22} color={colors.secondary} strokeWidth={3} />, bg: colors.successBg, fg: colors.secondary },
+    { label: "Contractors", value: stats?.contractor_count ?? 0, icon: <Building2 size={22} color="#fff" strokeWidth={3} />, bg: colors.warning, fg: "#fff" },
   ];
 
   return (
@@ -130,7 +130,7 @@ export default function Dashboard() {
 
 const styles = StyleSheet.create({
   header: {
-    backgroundColor: colors.secondary,
+    backgroundColor: colors.surface,
     paddingHorizontal: 16,
     paddingBottom: 16,
     borderBottomWidth: 4,
@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  headerTitle: { color: colors.primary, fontSize: 16, fontWeight: "900", letterSpacing: 1 },
+  headerTitle: { color: colors.text, fontSize: 16, fontWeight: "900", letterSpacing: 1 },
   logoutBtn: {
     width: 38, height: 38, backgroundColor: colors.danger, borderRadius: 4, borderWidth: 2, borderColor: "#fff",
     alignItems: "center", justifyContent: "center",
@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   tableHeader: { flexDirection: "row", backgroundColor: colors.secondary, padding: 12 },
-  th: { flex: 1, color: colors.primary, fontWeight: "900", fontSize: 11, letterSpacing: 1, textTransform: "uppercase" },
+  th: { flex: 1, color: colors.text, fontWeight: "900", fontSize: 11, letterSpacing: 1, textTransform: "uppercase" },
   tableRow: { flexDirection: "row", padding: 12, borderTopWidth: 1, borderTopColor: colors.border },
   td: { flex: 1, color: colors.text, fontWeight: "600", fontSize: 13 },
   empty: { padding: 16, textAlign: "center", color: colors.textMuted, fontWeight: "600" },

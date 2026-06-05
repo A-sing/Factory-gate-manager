@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 4, borderBottomColor: colors.primary,
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
   },
-  headerTitle: { color: colors.primary, fontSize: 16, fontWeight: "900", letterSpacing: 1 },
+  headerTitle: { color: colors.text, fontSize: 16, fontWeight: "900", letterSpacing: 1 },
   dlBtn: {
     flexDirection: "row", alignItems: "center",
     backgroundColor: colors.primary,
@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     borderWidth: 2, borderColor: colors.primary,
   },
-  dlBtnText: { color: colors.secondary, fontWeight: "900", fontSize: 11, letterSpacing: 1 },
+  dlBtnText: { color: colors.text, fontWeight: "900", fontSize: 11, letterSpacing: 1 },
   count: { fontSize: 11, fontWeight: "800", letterSpacing: 1, color: colors.textMuted, marginBottom: 8, textTransform: "uppercase" },
   row: {
     flexDirection: "row",

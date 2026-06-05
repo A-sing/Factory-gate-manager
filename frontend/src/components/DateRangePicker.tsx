@@ -107,7 +107,7 @@ export function DateRangePicker({
 
 const styles = StyleSheet.create({
   headerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
-  headerText: { fontWeight: "800", fontSize: 12, letterSpacing: 1, color: colors.secondary, textTransform: "uppercase" },
+  headerText: { fontWeight: "800", fontSize: 12, letterSpacing: 1, color: colors.text, textTransform: "uppercase" },
   chipRow: { gap: 8, paddingVertical: 2 },
   chip: {
     paddingHorizontal: 12,
@@ -122,7 +122,7 @@ const styles = StyleSheet.create({
   },
   chipActive: { backgroundColor: colors.primary, borderColor: colors.secondary },
   chipText: { fontSize: 12, fontWeight: "700", color: colors.text },
-  chipTextActive: { color: colors.secondary },
+  chipTextActive: { color: colors.text },
   customRow: {
     flexDirection: "row",
     marginTop: 10,

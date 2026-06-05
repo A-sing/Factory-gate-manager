@@ -9,10 +9,10 @@ export default function AdminTabs() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: "#A1A1AA",
+        tabBarActiveTintColor: colors.secondary,
+        tabBarInactiveTintColor: "#9CA3AF",
         tabBarStyle: {
-          backgroundColor: colors.secondary,
+          backgroundColor: colors.surface,
           borderTopColor: colors.primary,
           borderTopWidth: 3,
           height: 64 + insets.bottom,

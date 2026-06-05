@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     letterSpacing: 1,
-    color: colors.secondary,
+    color: colors.text,
     textTransform: "uppercase",
     marginBottom: 6,
   },

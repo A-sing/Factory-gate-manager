@@ -85,7 +85,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   photo: { width: 64, height: 64, borderWidth: 2, borderColor: colors.secondary, borderRadius: 4 },
-  id: { color: colors.primary, backgroundColor: colors.secondary, alignSelf: "flex-start", paddingHorizontal: 8, paddingVertical: 2, fontSize: 11, fontWeight: "900", letterSpacing: 1, borderRadius: 2 },
+  id: { color: colors.text, backgroundColor: colors.primary, alignSelf: "flex-start", paddingHorizontal: 8, paddingVertical: 2, fontSize: 11, fontWeight: "900", letterSpacing: 1, borderRadius: 2 },
   name: { fontSize: 16, fontWeight: "800", color: colors.text, marginTop: 4 },
   meta: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
   time: { fontSize: 11, color: colors.success, fontWeight: "700", marginTop: 4 },

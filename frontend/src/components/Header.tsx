@@ -27,7 +27,7 @@ export function Header({
             style={styles.iconBtn}
             hitSlop={12}
           >
-            <ArrowLeft size={24} color={colors.secondaryFg} strokeWidth={3} />
+            <ArrowLeft size={24} color={colors.text} strokeWidth={3} />
           </TouchableOpacity>
         ) : (
           <View style={{ width: 44 }} />
@@ -46,7 +46,7 @@ export function Header({
 
 const styles = StyleSheet.create({
   wrap: {
-    backgroundColor: colors.secondary,
+    backgroundColor: colors.surface,
     paddingBottom: 16,
     paddingHorizontal: 16,
     borderBottomWidth: 4,
@@ -60,12 +60,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   title: {
-    color: colors.secondaryFg,
+    color: colors.text,
     fontWeight: "900",
     fontSize: 20,
     letterSpacing: 0.5,
     textTransform: "uppercase",
   },
-  subtitle: { color: "#A1A1AA", fontSize: 12, marginTop: 2 },
+  subtitle: { color: colors.text, fontSize: 12, marginTop: 2 },
   right: { minWidth: 44, alignItems: "flex-end" },
 });

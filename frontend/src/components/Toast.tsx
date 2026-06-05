@@ -62,5 +62,5 @@ const styles = StyleSheet.create({
     minWidth: 200,
     maxWidth: "100%",
   },
-  text: { color: "#fff", fontWeight: "700", textAlign: "center" },
+  text: { color: colors.text, fontWeight: "700", textAlign: "center" },
 });

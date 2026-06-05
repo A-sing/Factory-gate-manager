@@ -13,14 +13,14 @@ export default function LabourHub() {
       title: "SEARCH LABOUR",
       subtitle: "By ID, Name or Aadhaar",
       icon: <Search size={36} color="#fff" strokeWidth={2.5} />,
-      color: colors.secondary,
+      color: colors.text,
       testID: "labour-search-btn",
       to: "/(guard)/labour/search",
     },
     {
       title: "SCAN QR",
       subtitle: "Fast camera scan",
-      icon: <QrCode size={36} color={colors.secondary} strokeWidth={2.5} />,
+      icon: <QrCode size={36} color={colors.text} strokeWidth={2.5} />,
       color: colors.primary,
       testID: "labour-scan-btn",
       to: "/(guard)/labour/scan",
@@ -56,10 +56,10 @@ export default function LabourHub() {
             style={[styles.card, { backgroundColor: a.color }]}
           >
             {a.icon}
-            <Text style={[styles.cardTitle, { color: a.color === colors.primary ? colors.secondary : "#fff" }]}>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>
               {a.title}
             </Text>
-            <Text style={[styles.cardSub, { color: a.color === colors.primary ? colors.secondary : "#fff" }]}>
+            <Text style={[styles.cardSub, { color: colors.text }]}>
               {a.subtitle}
             </Text>
           </TouchableOpacity>

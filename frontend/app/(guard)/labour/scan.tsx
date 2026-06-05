@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
   },
   frameText: {
     marginTop: 16,
-    color: colors.primary,
+    color: colors.text,
     fontWeight: "800",
     letterSpacing: 1,
     textTransform: "uppercase",

@@ -54,9 +54,9 @@ export function Button({
 const variantStyles: Record<Variant, { bg: string; fg: string; border: string }> = {
   primary: { bg: colors.primary, fg: colors.primaryFg, border: colors.secondary },
   secondary: { bg: colors.secondary, fg: colors.secondaryFg, border: colors.secondary },
-  outline: { bg: "transparent", fg: colors.secondary, border: colors.secondary },
-  danger: { bg: colors.danger, fg: "#fff", border: colors.danger },
-  success: { bg: colors.success, fg: "#fff", border: colors.success },
+  outline: { bg: "transparent", fg: colors.text, border: colors.secondary },
+  danger: { bg: colors.danger, fg: "#000000", border: colors.danger },
+  success: { bg: colors.success, fg: "#000000", border: colors.success },
 };
 
 const styles = StyleSheet.create({

@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     letterSpacing: 1,
-    color: colors.secondary,
+    color: colors.text,
     textTransform: "uppercase",
     marginBottom: 6,
   },
@@ -202,7 +202,7 @@ const styles = StyleSheet.create({
   },
   chipActive: { backgroundColor: colors.primary, borderColor: colors.secondary },
   chipText: { fontSize: 13, fontWeight: "700", color: colors.text },
-  chipTextActive: { color: colors.secondary },
+  chipTextActive: { color: colors.text },
   warningBox: {
     padding: 12,
     backgroundColor: colors.warningBg,

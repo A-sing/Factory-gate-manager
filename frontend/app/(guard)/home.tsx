@@ -57,8 +57,8 @@ export default function GuardHome() {
           style={[styles.bigBtn, { backgroundColor: colors.secondary, borderColor: colors.secondary }]}
         >
           <UserPlus size={56} color={colors.primary} strokeWidth={2.5} />
-          <Text style={[styles.bigBtnLabel, { color: "#fff" }]}>VISITOR{"\n"}ENTRY</Text>
-          <Text style={[styles.bigBtnSub, { color: colors.primary }]}>One-time visit</Text>
+          <Text style={[styles.bigBtnLabel, { color: colors.text }]}>VISITOR{"\n"}ENTRY</Text>
+          <Text style={[styles.bigBtnSub, { color: colors.text }]}>One-time visit</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -68,8 +68,8 @@ export default function GuardHome() {
           style={[styles.bigBtn, { backgroundColor: colors.primary, borderColor: colors.secondary }]}
         >
           <Users size={56} color={colors.secondary} strokeWidth={2.5} />
-          <Text style={[styles.bigBtnLabel, { color: colors.secondary }]}>LABOUR{"\n"}ENTRY</Text>
-          <Text style={[styles.bigBtnSub, { color: colors.secondary }]}>Check-in / Check-out</Text>
+          <Text style={[styles.bigBtnLabel, { color: colors.text }]}>LABOUR{"\n"}ENTRY</Text>
+          <Text style={[styles.bigBtnSub, { color: colors.text }]}>Check-in / Check-out</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -79,7 +79,7 @@ export default function GuardHome() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   header: {
-    backgroundColor: colors.secondary,
+    backgroundColor: colors.surface,
     paddingHorizontal: 16,
     paddingBottom: 18,
     borderBottomWidth: 4,
@@ -87,8 +87,8 @@ const styles = StyleSheet.create({
   },
   headerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   brand: { flexDirection: "row", alignItems: "center" },
-  brandTitle: { color: colors.primary, fontWeight: "900", fontSize: 18, letterSpacing: 1 },
-  brandSubtitle: { color: "#A1A1AA", fontSize: 11, letterSpacing: 1, textTransform: "uppercase" },
+  brandTitle: { color: colors.text, fontWeight: "900", fontSize: 18, letterSpacing: 1 },
+  brandSubtitle: { color: colors.text, fontSize: 11, letterSpacing: 1, textTransform: "uppercase" },
   logoutBtn: {
     width: 44,
     height: 44,
@@ -100,8 +100,8 @@ const styles = StyleSheet.create({
     borderColor: "#fff",
   },
   guardInfo: { marginTop: 14, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  guardName: { color: "#fff", fontWeight: "800", letterSpacing: 1, fontSize: 12 },
-  dateTime: { color: colors.primary, fontSize: 12, fontWeight: "700", letterSpacing: 1 },
+  guardName: { color: colors.text, fontWeight: "800", letterSpacing: 1, fontSize: 12 },
+  dateTime: { color: colors.text, fontSize: 12, fontWeight: "700", letterSpacing: 1 },
   body: { flex: 1, padding: 20, justifyContent: "center" },
   prompt: {
     color: colors.textMuted,

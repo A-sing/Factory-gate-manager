@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
   },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 18 },
   title: { fontSize: 18, fontWeight: "900", letterSpacing: 0.5, color: colors.text },
-  label: { fontSize: 12, fontWeight: "800", letterSpacing: 1, color: colors.secondary, textTransform: "uppercase", marginBottom: 8 },
+  label: { fontSize: 12, fontWeight: "800", letterSpacing: 1, color: colors.text, textTransform: "uppercase", marginBottom: 8 },
   row: { flexDirection: "row", gap: 12, marginBottom: 16 },
   card: {
     flex: 1,
@@ -144,9 +144,9 @@ const styles = StyleSheet.create({
   },
   cardActive: { backgroundColor: colors.primary, borderColor: colors.secondary },
   cardTitle: { fontSize: 14, fontWeight: "900", letterSpacing: 1, marginTop: 8, color: colors.text },
-  cardTitleActive: { color: colors.secondary },
+  cardTitleActive: { color: colors.text },
   cardSub: { fontSize: 11, fontWeight: "600", color: colors.textMuted, marginTop: 2 },
-  cardSubActive: { color: colors.secondary, opacity: 0.7 },
+  cardSubActive: { color: colors.text, opacity: 0.7 },
   rangeBox: {
     backgroundColor: colors.surfaceElevated,
     borderWidth: 2,

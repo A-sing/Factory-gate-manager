@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 4, borderBottomColor: colors.primary,
     flexDirection: "row", alignItems: "center",
   },
-  headerTitle: { color: colors.primary, fontSize: 16, fontWeight: "900", letterSpacing: 1 },
+  headerTitle: { color: colors.text, fontSize: 16, fontWeight: "900", letterSpacing: 1 },
   row: { flexDirection: "row", backgroundColor: colors.surface, borderWidth: 2, borderColor: colors.border, borderRadius: 4, padding: 14, marginBottom: 10, alignItems: "center" },
   name: { fontSize: 16, fontWeight: "800", color: colors.text },
   meta: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
