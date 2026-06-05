@@ -1,5 +1,5 @@
 import { Tabs } from "expo-router";
-import { LayoutDashboard, ClipboardList, Users, Building2, Activity } from "lucide-react-native";
+import { LayoutDashboard, ClipboardList, Users, Building2, Activity, Settings } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors } from "@/src/lib/theme";
 
@@ -55,6 +55,13 @@ export default function AdminTabs() {
         options={{
           title: "Roll Call",
           tabBarIcon: ({ color }) => <Activity size={22} color={color} strokeWidth={2.5} />,
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: "Settings",
+          tabBarIcon: ({ color }) => <Settings size={22} color={color} strokeWidth={2.5} />,
         }}
       />
     </Tabs>

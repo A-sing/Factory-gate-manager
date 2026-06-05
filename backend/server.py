@@ -130,6 +130,31 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
+class UserCreate(BaseModel):
+    name: str
+    username: str
+    password: str
+    role: str  # "admin" or "guard"
+
+
+class UserUpdate(BaseModel):
+    name: Optional[str] = None
+    password: Optional[str] = None
+    role: Optional[str] = None
+
+
+class SettingsUpdate(BaseModel):
+    business_name: Optional[str] = None
+    labour_categories: Optional[List[str]] = None
+    visit_purposes: Optional[List[str]] = None
+    gates: Optional[List[str]] = None
+
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
@@ -232,6 +257,139 @@ async def login(body: LoginRequest):
 @api_router.get("/auth/me", response_model=UserPublic)
 async def me(user: dict = Depends(get_current_user)):
     return UserPublic(**{k: user[k] for k in ("id", "name", "username", "role")})
+
+
+@api_router.post("/auth/change-password")
+async def change_password(body: ChangePasswordRequest, user: dict = Depends(get_current_user)):
+    full = await db.users.find_one({"id": user["id"]})
+    if not full or not verify_password(body.current_password, full["password_hash"]):
+        raise HTTPException(400, "Current password is incorrect")
+    if len(body.new_password) < 6:
+        raise HTTPException(400, "New password must be at least 6 characters")
+    await db.users.update_one({"id": user["id"]}, {"$set": {"password_hash": hash_password(body.new_password)}})
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# User management (admin only)
+# ---------------------------------------------------------------------------
+
+@api_router.get("/users", response_model=List[UserPublic])
+async def list_users(_: dict = Depends(require_admin)):
+    cursor = db.users.find({}, {"_id": 0, "password_hash": 0}).sort("created_at", 1)
+    return [UserPublic(**{k: d[k] for k in ("id", "name", "username", "role")}) async for d in cursor]
+
+
+@api_router.post("/users", response_model=UserPublic)
+async def create_user(body: UserCreate, _: dict = Depends(require_admin)):
+    uname = body.username.lower().strip()
+    if not uname or not body.password or not body.name.strip():
+        raise HTTPException(400, "Name, username and password are required")
+    if body.role not in ("admin", "guard"):
+        raise HTTPException(400, "Role must be admin or guard")
+    if len(body.password) < 6:
+        raise HTTPException(400, "Password must be at least 6 characters")
+    if await db.users.find_one({"username": uname}):
+        raise HTTPException(400, "Username already exists")
+    doc = {
+        "id": str(uuid.uuid4()),
+        "name": body.name.strip(),
+        "username": uname,
+        "password_hash": hash_password(body.password),
+        "role": body.role,
+        "created_at": utcnow(),
+    }
+    await db.users.insert_one(doc)
+    return UserPublic(id=doc["id"], name=doc["name"], username=doc["username"], role=doc["role"])
+
+
+@api_router.put("/users/{uid}", response_model=UserPublic)
+async def update_user(uid: str, body: UserUpdate, _: dict = Depends(require_admin)):
+    update: dict = {}
+    if body.name is not None:
+        update["name"] = body.name.strip()
+    if body.role is not None:
+        if body.role not in ("admin", "guard"):
+            raise HTTPException(400, "Role must be admin or guard")
+        update["role"] = body.role
+    if body.password is not None:
+        if len(body.password) < 6:
+            raise HTTPException(400, "Password must be at least 6 characters")
+        update["password_hash"] = hash_password(body.password)
+    if not update:
+        raise HTTPException(400, "No changes")
+    res = await db.users.find_one_and_update(
+        {"id": uid}, {"$set": update}, return_document=True, projection={"_id": 0, "password_hash": 0}
+    )
+    if not res:
+        raise HTTPException(404, "User not found")
+    return UserPublic(**{k: res[k] for k in ("id", "name", "username", "role")})
+
+
+@api_router.delete("/users/{uid}")
+async def delete_user(uid: str, user: dict = Depends(require_admin)):
+    if uid == user["id"]:
+        raise HTTPException(400, "You cannot delete yourself")
+    res = await db.users.delete_one({"id": uid})
+    if res.deleted_count == 0:
+        raise HTTPException(404, "User not found")
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# Settings (business name + dropdowns)
+# ---------------------------------------------------------------------------
+
+DEFAULT_SETTINGS = {
+    "business_name": "DBS Factory",
+    "labour_categories": ["Welder", "Fitter", "Electrician", "Helper", "Carpenter", "Painter", "Other"],
+    "visit_purposes": ["Meeting", "Delivery", "Maintenance", "Interview", "Audit", "Other"],
+    "gates": ["Main Gate", "Gate 1", "Gate 2"],
+}
+
+
+async def _settings_doc() -> dict:
+    doc = await db.settings.find_one({"key": "app"}, {"_id": 0})
+    if not doc:
+        doc = {"key": "app", **DEFAULT_SETTINGS, "updated_at": utcnow()}
+        await db.settings.insert_one(doc)
+        doc.pop("_id", None)
+    for k, v in DEFAULT_SETTINGS.items():
+        doc.setdefault(k, v)
+    return doc
+
+
+def _public_settings(doc: dict) -> dict:
+    return {
+        "business_name": doc["business_name"],
+        "labour_categories": doc["labour_categories"],
+        "visit_purposes": doc["visit_purposes"],
+        "gates": doc["gates"],
+    }
+
+
+@api_router.get("/settings")
+async def get_settings(_: dict = Depends(get_current_user)):
+    doc = await _settings_doc()
+    return _public_settings(doc)
+
+
+@api_router.put("/settings")
+async def put_settings(body: SettingsUpdate, _: dict = Depends(require_admin)):
+    await _settings_doc()
+    update: dict = {"updated_at": utcnow()}
+    if body.business_name is not None and body.business_name.strip():
+        update["business_name"] = body.business_name.strip()
+    if body.labour_categories is not None:
+        update["labour_categories"] = [c.strip() for c in body.labour_categories if c.strip()]
+    if body.visit_purposes is not None:
+        update["visit_purposes"] = [c.strip() for c in body.visit_purposes if c.strip()]
+    if body.gates is not None:
+        update["gates"] = [c.strip() for c in body.gates if c.strip()]
+    await db.settings.update_one({"key": "app"}, {"$set": update})
+    return _public_settings(await _settings_doc())
+
+
 
 
 # ---------------------------------------------------------------------------

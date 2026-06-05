@@ -8,11 +8,13 @@ import { Button } from "@/src/components/Button";
 import { TextField } from "@/src/components/TextField";
 import { useToast } from "@/src/components/Toast";
 import { useAuth } from "@/src/lib/auth";
+import { useSettings } from "@/src/lib/settings";
 import { colors } from "@/src/lib/theme";
 
 export default function Login() {
   const router = useRouter();
   const { login } = useAuth();
+  const { settings } = useSettings();
   const toast = useToast();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -46,7 +48,7 @@ export default function Login() {
           <View style={styles.logoBox}>
             <Shield size={48} color={colors.primary} strokeWidth={3} />
           </View>
-          <Text style={styles.title}>DBS FACTORY</Text>
+          <Text style={styles.title}>{(settings.business_name || "DBS FACTORY").toUpperCase()}</Text>
           <Text style={styles.subtitle}>Gate Management System</Text>
         </View>
 

@@ -5,20 +5,23 @@ import { useRouter } from "expo-router";
 import { CheckCircle2 } from "lucide-react-native";
 
 import { Button } from "@/src/components/Button";
+import { Dropdown } from "@/src/components/Dropdown";
 import { Header } from "@/src/components/Header";
 import { PhotoCapture } from "@/src/components/PhotoCapture";
 import { TextField } from "@/src/components/TextField";
 import { useToast } from "@/src/components/Toast";
 import { api } from "@/src/lib/api";
+import { useSettings } from "@/src/lib/settings";
 import { colors } from "@/src/lib/theme";
 
 export default function VisitorEntry() {
   const router = useRouter();
   const toast = useToast();
+  const { settings } = useSettings();
   const [name, setName] = useState("");
   const [mobile, setMobile] = useState("");
-  const [purpose, setPurpose] = useState("");
-  const [gate, setGate] = useState("");
+  const [purpose, setPurpose] = useState<string>("");
+  const [gate, setGate] = useState<string>("");
   const [photo, setPhoto] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -72,19 +75,21 @@ export default function VisitorEntry() {
             keyboardType="phone-pad"
             maxLength={15}
           />
-          <TextField
-            testID="visitor-purpose-input"
+          <Dropdown
+            testID="visitor-purpose-dd"
             label="Purpose of Visit *"
-            value={purpose}
-            onChangeText={setPurpose}
-            placeholder="Meeting, Delivery, ..."
+            value={purpose || null}
+            options={settings.visit_purposes}
+            onChange={setPurpose}
+            placeholder="Select purpose..."
           />
-          <TextField
-            testID="visitor-gate-input"
+          <Dropdown
+            testID="visitor-gate-dd"
             label="Gate"
-            value={gate}
-            onChangeText={setGate}
-            placeholder="Gate 1, Gate 2, ..."
+            value={gate || null}
+            options={settings.gates}
+            onChange={setGate}
+            placeholder="Select gate (optional)..."
           />
           <PhotoCapture
             testID="visitor-photo"

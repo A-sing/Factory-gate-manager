@@ -5,11 +5,13 @@ import { useRouter } from "expo-router";
 import { Check } from "lucide-react-native";
 
 import { Button } from "@/src/components/Button";
+import { Dropdown } from "@/src/components/Dropdown";
 import { Header } from "@/src/components/Header";
 import { PhotoCapture } from "@/src/components/PhotoCapture";
 import { TextField } from "@/src/components/TextField";
 import { useToast } from "@/src/components/Toast";
 import { api } from "@/src/lib/api";
+import { useSettings } from "@/src/lib/settings";
 import { colors, LABOUR_CATEGORIES } from "@/src/lib/theme";
 
 type Contractor = { id: string; contractor_name: string };
@@ -17,10 +19,11 @@ type Contractor = { id: string; contractor_name: string };
 export default function NewLabour() {
   const router = useRouter();
   const toast = useToast();
+  const { settings } = useSettings();
   const [name, setName] = useState("");
   const [contractors, setContractors] = useState<Contractor[]>([]);
   const [contractorId, setContractorId] = useState<string>("");
-  const [category, setCategory] = useState<string>("Helper");
+  const [category, setCategory] = useState<string>(settings.labour_categories[0] || "Helper");
   const [aadhaar, setAadhaar] = useState("");
   const [mobile, setMobile] = useState("");
   const [photo, setPhoto] = useState<string | null>(null);
@@ -116,7 +119,7 @@ export default function NewLabour() {
             <Text style={styles.label}>Category *</Text>
             <View style={{ marginBottom: 14 }}>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-                {LABOUR_CATEGORIES.map((c) => (
+                {settings.labour_categories.map((c) => (
                   <TouchableOpacity
                     key={c}
                     testID={`category-chip-${c}`}

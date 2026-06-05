@@ -13,6 +13,7 @@ import {
 
 import { useToast } from "@/src/components/Toast";
 import { useAuth } from "@/src/lib/auth";
+import { useSettings } from "@/src/lib/settings";
 import { api } from "@/src/lib/api";
 import { colors } from "@/src/lib/theme";
 
@@ -74,7 +75,7 @@ export default function Dashboard() {
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <View style={{ flexDirection: "row", alignItems: "center" }}>
           <Shield size={22} color={colors.primary} strokeWidth={3} />
-          <Text style={styles.headerTitle}>  DBS FACTORY • ADMIN</Text>
+          <Text style={styles.headerTitle}>  {(settings.business_name || "DBS Factory").toUpperCase()} • ADMIN</Text>
         </View>
         <TouchableOpacity onPress={handleLogout} testID="admin-logout-btn" style={styles.logoutBtn}>
           <LogOut size={18} color="#fff" strokeWidth={3} />

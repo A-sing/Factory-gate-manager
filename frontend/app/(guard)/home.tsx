@@ -5,11 +5,13 @@ import { useRouter } from "expo-router";
 import { LogOut, UserPlus, Users, Shield } from "lucide-react-native";
 
 import { useAuth } from "@/src/lib/auth";
+import { useSettings } from "@/src/lib/settings";
 import { colors } from "@/src/lib/theme";
 
 export default function GuardHome() {
   const router = useRouter();
   const { user, logout } = useAuth();
+  const { settings } = useSettings();
   const insets = useSafeAreaInsets();
   const [now, setNow] = useState(new Date());
 
@@ -33,7 +35,7 @@ export default function GuardHome() {
           <View style={styles.brand}>
             <Shield size={26} color={colors.primary} strokeWidth={3} />
             <View style={{ marginLeft: 10 }}>
-              <Text style={styles.brandTitle}>DBS FACTORY</Text>
+              <Text style={styles.brandTitle}>{(settings.business_name || "DBS FACTORY").toUpperCase()}</Text>
               <Text style={styles.brandSubtitle}>Gate Operations</Text>
             </View>
           </View>
