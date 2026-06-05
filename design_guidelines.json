@@ -1,0 +1,114 @@
+{
+  "project_name": "DBS FACTORY",
+  "domain": "Factory Gate Management System",
+  "theme": "Light",
+  "archetype": "4 (Swiss & High-Contrast) - Modified for Industrial Ruggedness",
+  "emotional_tone": "Secure, robust, official, indestructible, clear",
+  "colors": {
+    "primary": "#FFCC00",
+    "primary_foreground": "#09090B",
+    "secondary": "#09090B",
+    "secondary_foreground": "#FFFFFF",
+    "background": "#F4F4F5",
+    "surface": "#FFFFFF",
+    "surface_elevated": "#FAFAFA",
+    "border": "#E4E4E7",
+    "success": "#16A34A",
+    "success_bg": "#DCFCE7",
+    "warning": "#F59E0B",
+    "warning_bg": "#FEF3C7",
+    "danger": "#DC2626",
+    "danger_bg": "#FEE2E2",
+    "text_main": "#09090B",
+    "text_muted": "#52525B",
+    "focus_ring": "#FFCC00"
+  },
+  "typography": {
+    "heading_font": "Chivo",
+    "body_font": "IBM Plex Sans",
+    "scales": {
+      "h1": "text-4xl tracking-tighter font-black",
+      "h2": "text-2xl tracking-tight font-bold",
+      "h3": "text-xl font-bold",
+      "h4": "text-lg font-bold",
+      "body": "text-base font-normal",
+      "label": "text-sm font-semibold tracking-wide uppercase",
+      "small": "text-xs font-medium"
+    }
+  },
+  "layout_and_spacing": {
+    "philosophy": "Glove-friendly, high-contrast, low-clutter, task-first design.",
+    "spacing_scale": "Use standard Tailwind scale but double the usual padding for Guard UI (e.g., p-6 or p-8 instead of p-4).",
+    "touch_targets": "MINIMUM 64px height for all interactive elements in Guard flows. For Admin, standard 44px is acceptable.",
+    "container_padding": "px-4 md:px-8",
+    "border_radius": "rounded-sm (Keep edges sharp and industrial, max 4px/8px. No pill-shaped buttons except for status chips)."
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-primary text-primary-foreground font-bold uppercase tracking-wider rounded-sm h-16 (Guard) or h-12 (Admin) justify-center items-center active:opacity-80 border-2 border-primary",
+      "secondary": "bg-secondary text-secondary-foreground font-bold uppercase tracking-wider rounded-sm h-16 (Guard) or h-12 (Admin) justify-center items-center active:opacity-80 border-2 border-secondary",
+      "outline": "bg-transparent text-main border-2 border-secondary font-bold uppercase rounded-sm h-16 justify-center items-center active:bg-secondary active:text-white"
+    },
+    "inputs": {
+      "text": "bg-surface border-2 border-border h-16 px-4 text-lg rounded-sm focus:border-secondary focus:bg-white",
+      "label": "text-label text-secondary mb-2"
+    },
+    "cards": {
+      "base": "bg-surface border-2 border-border rounded-sm p-4 md:p-6 shadow-[4px_4px_0px_0px_rgba(9,9,11,1)]"
+    },
+    "status_chips": {
+      "inside": "bg-success_bg text-success border border-success font-bold px-3 py-1 rounded-full text-xs uppercase",
+      "checked_out": "bg-border text-text_muted border border-text_muted font-bold px-3 py-1 rounded-full text-xs uppercase",
+      "new_visitor": "bg-warning_bg text-warning border border-warning font-bold px-3 py-1 rounded-full text-xs uppercase"
+    }
+  },
+  "screens": {
+    "login": {
+      "layout": "Full screen background image with heavy dark overlay (bg-black/70). Content centered.",
+      "visuals": "Logo in Warning Yellow. Input fields massive and high contrast."
+    },
+    "guard_home": {
+      "layout": "Minimalist stack. The screen should basically just be two massive buttons covering 80% of the viewport.",
+      "elements": [
+        "Header: DBS FACTORY (Logo), Current Time, Guard Profile",
+        "Button 1: VISITOR ENTRY (Blue or Black bg, massive icon, taking up 40% height)",
+        "Button 2: LABOUR ENTRY (Safety Yellow bg, massive icon, taking up 40% height)"
+      ]
+    },
+    "guard_labour_entry": {
+      "layout": "Action-oriented hub. Huge search bar at top. 3 big actions: New Registration, Scan QR, Search.",
+      "elements": "After finding labour, show a massive 'CHECK IN' (Green) or 'CHECK OUT' (Red) button. Avoid small text."
+    },
+    "admin_dashboard": {
+      "layout": "Bento Grid style cards (Control Room pattern). Dense, KPI-first.",
+      "cards": [
+        "Visitors Today (Metric + Trend)",
+        "Labour Present Inside (Crucial for roll call)",
+        "Labour Checked Out Today",
+        "Total Labour Registered",
+        "Contractor Count"
+      ],
+      "tables": "Responsive cards on mobile, flat data tables on tablet/web. High contrast headers."
+    }
+  },
+  "image_urls": [
+    {
+      "category": "login_background",
+      "url": "https://images.pexels.com/photos/7178310/pexels-photo-7178310.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "description": "Industrial factory with metal pipes and fences against a cloudy sky. Conveys robust, industrial, outdoor factory environment."
+    }
+  ],
+  "accessibility_and_testing": {
+    "contrast": "Ensure all text over colored backgrounds meets WCAG AA 4.5:1 minimum.",
+    "testing_ids": "All interactive elements MUST have data-testid attributes (e.g., data-testid='login-submit-button')."
+  },
+  "instructions_to_main_agent": [
+    "Use NativeWind or standard StyleSheet mapping exactly to the Tailwind values provided in the colors and typography sections.",
+    "Guard app screens MUST prioritize tap target sizes (min 64px) and absolute clarity over data density. The interface must be usable by someone wearing gloves in bright sunlight.",
+    "Admin app screens MUST prioritize data density, progressive disclosure, and clear KPI hierarchy.",
+    "Use lucide-react-native for all iconography. Make icons stroke-width 2.5 or 3 for a rugged look.",
+    "Do not use subtle drop shadows. Use the solid offset shadow (Neo-brutalism style) for cards: shadow-[4px_4px_0px_0px_rgba(9,9,11,1)] to reinforce the industrial, heavy-duty feel.",
+    "Form inputs must have a 2px solid border, not a 1px subtle border. Focus states must be highly visible.",
+    "Ensure all data-testid attributes are implemented for the Guard flows (Visitor Entry, Labour Entry, Check-in/out buttons)."
+  ]
+}
