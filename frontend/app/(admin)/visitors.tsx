@@ -1,9 +1,11 @@
 import { useCallback, useState } from "react";
-import { ActivityIndicator, FlatList, Image, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, Image, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect } from "expo-router";
-import { ClipboardList } from "lucide-react-native";
+import { ClipboardList, Download } from "lucide-react-native";
 
+import { DateRangePicker, rangeToQuery, type DateRange } from "@/src/components/DateRangePicker";
+import { ExportSheet } from "@/src/components/ExportSheet";
 import { TextField } from "@/src/components/TextField";
 import { useToast } from "@/src/components/Toast";
 import { api } from "@/src/lib/api";
@@ -26,11 +28,13 @@ export default function VisitorReports() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState("");
+  const [range, setRange] = useState<DateRange>({ start: null, end: null, label: "All Time" });
+  const [exportOpen, setExportOpen] = useState(false);
 
-  const load = useCallback(async (q?: string) => {
+  const load = useCallback(async (q: string, r: DateRange) => {
     try {
       const data = await api<Visitor[]>("/visitors", {
-        query: { visitor_name: q || undefined, limit: 500 },
+        query: { visitor_name: q || undefined, ...rangeToQuery(r), limit: 500 },
       });
       setRows(data);
     } catch (e: any) {
@@ -41,21 +45,36 @@ export default function VisitorReports() {
     }
   }, []);
 
-  useFocusEffect(useCallback(() => { setLoading(true); load(); }, [load]));
+  useFocusEffect(useCallback(() => { setLoading(true); load(search, range); }, [load]));
+
+  const onRange = (r: DateRange) => { setRange(r); setLoading(true); load(search, r); };
+  const onSearch = (t: string) => { setSearch(t); load(t, range); };
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <ClipboardList size={20} color={colors.primary} strokeWidth={3} />
-        <Text style={styles.headerTitle}>  Visitor Reports</Text>
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <ClipboardList size={20} color={colors.primary} strokeWidth={3} />
+          <Text style={styles.headerTitle}>  Visitor Reports</Text>
+        </View>
+        <TouchableOpacity
+          testID="visitor-export-btn"
+          onPress={() => setExportOpen(true)}
+          style={styles.dlBtn}
+        >
+          <Download size={16} color={colors.secondary} strokeWidth={3} />
+          <Text style={styles.dlBtnText}>  EXPORT</Text>
+        </TouchableOpacity>
       </View>
 
-      <View style={{ padding: 14, paddingBottom: 0 }}>
+      <View style={{ padding: 14 }}>
+        <DateRangePicker value={range} onChange={onRange} />
+        <View style={{ height: 12 }} />
         <TextField
           testID="visitor-search-input"
           placeholder="Search by name..."
           value={search}
-          onChangeText={(t) => { setSearch(t); load(t); }}
+          onChangeText={onSearch}
         />
       </View>
 
@@ -65,9 +84,12 @@ export default function VisitorReports() {
         <FlatList
           data={rows}
           keyExtractor={(i) => i.id}
-          contentContainerStyle={{ padding: 14, paddingBottom: 32 }}
-          ListEmptyComponent={<Text style={styles.empty}>No visitors found</Text>}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(search); }} />}
+          contentContainerStyle={{ paddingHorizontal: 14, paddingBottom: 32 }}
+          ListHeaderComponent={
+            <Text style={styles.count}>{rows.length} record{rows.length === 1 ? "" : "s"}</Text>
+          }
+          ListEmptyComponent={<Text style={styles.empty}>No visitors in selected range</Text>}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(search, range); }} />}
           renderItem={({ item }) => (
             <View style={styles.row}>
               {item.photo_base64 ? (
@@ -90,6 +112,15 @@ export default function VisitorReports() {
           )}
         />
       )}
+
+      <ExportSheet
+        visible={exportOpen}
+        onClose={() => setExportOpen(false)}
+        title="Export Visitor Report"
+        endpoint="/visitors/export"
+        fileBase="visitors"
+        range={range}
+      />
     </View>
   );
 }
@@ -99,9 +130,18 @@ const styles = StyleSheet.create({
     backgroundColor: colors.secondary,
     paddingHorizontal: 16, paddingBottom: 14,
     borderBottomWidth: 4, borderBottomColor: colors.primary,
-    flexDirection: "row", alignItems: "center",
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
   },
   headerTitle: { color: colors.primary, fontSize: 16, fontWeight: "900", letterSpacing: 1 },
+  dlBtn: {
+    flexDirection: "row", alignItems: "center",
+    backgroundColor: colors.primary,
+    paddingHorizontal: 12, paddingVertical: 8,
+    borderRadius: 4,
+    borderWidth: 2, borderColor: colors.primary,
+  },
+  dlBtnText: { color: colors.secondary, fontWeight: "900", fontSize: 11, letterSpacing: 1 },
+  count: { fontSize: 11, fontWeight: "800", letterSpacing: 1, color: colors.textMuted, marginBottom: 8, textTransform: "uppercase" },
   row: {
     flexDirection: "row",
     backgroundColor: colors.surface,

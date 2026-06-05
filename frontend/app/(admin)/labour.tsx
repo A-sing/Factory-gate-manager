@@ -2,8 +2,10 @@ import { useCallback, useState } from "react";
 import { ActivityIndicator, FlatList, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect } from "expo-router";
-import { Users } from "lucide-react-native";
+import { Users, Download } from "lucide-react-native";
 
+import { DateRangePicker, rangeToQuery, type DateRange } from "@/src/components/DateRangePicker";
+import { ExportSheet } from "@/src/components/ExportSheet";
 import { TextField } from "@/src/components/TextField";
 import { useToast } from "@/src/components/Toast";
 import { api } from "@/src/lib/api";
@@ -29,13 +31,16 @@ export default function LabourReports() {
   const [refreshing, setRefreshing] = useState(false);
   const [q, setQ] = useState("");
   const [category, setCategory] = useState<string | null>(null);
+  const [range, setRange] = useState<DateRange>({ start: null, end: null, label: "All Time" });
+  const [exportOpen, setExportOpen] = useState(false);
 
-  const load = useCallback(async (search?: string, cat?: string | null) => {
+  const load = useCallback(async (search: string, cat: string | null, r: DateRange) => {
     try {
       const data = await api<AttRow[]>("/attendance", {
         query: {
           labour_name: search || undefined,
           category: cat || undefined,
+          ...rangeToQuery(r),
           limit: 500,
         },
       });
@@ -48,26 +53,42 @@ export default function LabourReports() {
     }
   }, []);
 
-  useFocusEffect(useCallback(() => { setLoading(true); load(); }, [load]));
+  useFocusEffect(useCallback(() => { setLoading(true); load(q, category, range); }, [load]));
+
+  const onSearch = (t: string) => { setQ(t); load(t, category, range); };
+  const onCategory = (c: string | null) => { setCategory(c); load(q, c, range); };
+  const onRange = (r: DateRange) => { setRange(r); setLoading(true); load(q, category, r); };
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <Users size={20} color={colors.primary} strokeWidth={3} />
-        <Text style={styles.headerTitle}>  Labour Reports</Text>
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <Users size={20} color={colors.primary} strokeWidth={3} />
+          <Text style={styles.headerTitle}>  Labour Reports</Text>
+        </View>
+        <TouchableOpacity
+          testID="labour-export-btn"
+          onPress={() => setExportOpen(true)}
+          style={styles.dlBtn}
+        >
+          <Download size={16} color={colors.secondary} strokeWidth={3} />
+          <Text style={styles.dlBtnText}>  EXPORT</Text>
+        </TouchableOpacity>
       </View>
 
-      <View style={{ padding: 14, paddingBottom: 0 }}>
+      <View style={{ padding: 14 }}>
+        <DateRangePicker value={range} onChange={onRange} />
+        <View style={{ height: 12 }} />
         <TextField
           testID="labour-report-search"
           placeholder="Search by name..."
           value={q}
-          onChangeText={(t) => { setQ(t); load(t, category); }}
+          onChangeText={onSearch}
         />
         <View style={{ height: 56 }}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
             <TouchableOpacity
-              onPress={() => { setCategory(null); load(q, null); }}
+              onPress={() => onCategory(null)}
               style={[styles.chip, !category && styles.chipActive]}
             >
               <Text style={[styles.chipText, !category && styles.chipTextActive]}>All</Text>
@@ -75,7 +96,7 @@ export default function LabourReports() {
             {LABOUR_CATEGORIES.map((c) => (
               <TouchableOpacity
                 key={c}
-                onPress={() => { setCategory(c); load(q, c); }}
+                onPress={() => onCategory(c)}
                 style={[styles.chip, category === c && styles.chipActive]}
               >
                 <Text style={[styles.chipText, category === c && styles.chipTextActive]}>{c}</Text>
@@ -91,35 +112,45 @@ export default function LabourReports() {
         <FlatList
           data={rows}
           keyExtractor={(i, idx) => `${i.labour_id}-${i.check_in_time}-${idx}`}
-          contentContainerStyle={{ padding: 14, paddingBottom: 32 }}
-          ListEmptyComponent={<Text style={styles.empty}>No records found</Text>}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(q, category); }} />}
-          renderItem={({ item }) => {
-            const isInside = !item.check_out_time;
-            return (
-              <View style={styles.row}>
-                <View style={styles.idCol}>
-                  <Text style={styles.id}>{item.labour_id}</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.name}>{item.labour_name}</Text>
-                  <Text style={styles.meta}>{item.contractor_name || "—"} • {item.category}</Text>
-                  <Text style={styles.time}>IN: {new Date(item.check_in_time).toLocaleString()}</Text>
-                  {item.check_out_time ? (
-                    <Text style={styles.timeOut}>
-                      OUT: {new Date(item.check_out_time).toLocaleString()}  •  {item.total_hours}h
-                    </Text>
-                  ) : (
-                    <View style={[styles.statusChip, { backgroundColor: colors.successBg, borderColor: colors.success }]}>
-                      <Text style={[styles.statusText, { color: colors.success }]}>INSIDE</Text>
-                    </View>
-                  )}
-                </View>
+          contentContainerStyle={{ paddingHorizontal: 14, paddingBottom: 32 }}
+          ListHeaderComponent={
+            <Text style={styles.count}>{rows.length} record{rows.length === 1 ? "" : "s"}</Text>
+          }
+          ListEmptyComponent={<Text style={styles.empty}>No records in selected range</Text>}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(q, category, range); }} />}
+          renderItem={({ item }) => (
+            <View style={styles.row}>
+              <View style={styles.idCol}>
+                <Text style={styles.id}>{item.labour_id}</Text>
               </View>
-            );
-          }}
+              <View style={{ flex: 1 }}>
+                <Text style={styles.name}>{item.labour_name}</Text>
+                <Text style={styles.meta}>{item.contractor_name || "—"} • {item.category}</Text>
+                <Text style={styles.time}>IN: {new Date(item.check_in_time).toLocaleString()}</Text>
+                {item.check_out_time ? (
+                  <Text style={styles.timeOut}>
+                    OUT: {new Date(item.check_out_time).toLocaleString()}  •  {item.total_hours}h
+                  </Text>
+                ) : (
+                  <View style={[styles.statusChip, { backgroundColor: colors.successBg, borderColor: colors.success }]}>
+                    <Text style={[styles.statusText, { color: colors.success }]}>INSIDE</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          )}
         />
       )}
+
+      <ExportSheet
+        visible={exportOpen}
+        onClose={() => setExportOpen(false)}
+        title="Export Labour Report"
+        endpoint="/attendance/export"
+        fileBase="labour_attendance"
+        range={range}
+        extraQuery={{ category: category || undefined }}
+      />
     </View>
   );
 }
@@ -129,9 +160,17 @@ const styles = StyleSheet.create({
     backgroundColor: colors.secondary,
     paddingHorizontal: 16, paddingBottom: 14,
     borderBottomWidth: 4, borderBottomColor: colors.primary,
-    flexDirection: "row", alignItems: "center",
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
   },
   headerTitle: { color: colors.primary, fontSize: 16, fontWeight: "900", letterSpacing: 1 },
+  dlBtn: {
+    flexDirection: "row", alignItems: "center",
+    backgroundColor: colors.primary,
+    paddingHorizontal: 12, paddingVertical: 8,
+    borderRadius: 4, borderWidth: 2, borderColor: colors.primary,
+  },
+  dlBtnText: { color: colors.secondary, fontWeight: "900", fontSize: 11, letterSpacing: 1 },
+  count: { fontSize: 11, fontWeight: "800", letterSpacing: 1, color: colors.textMuted, marginBottom: 8, textTransform: "uppercase" },
   chipRow: { gap: 8, paddingVertical: 8 },
   chip: { paddingHorizontal: 14, height: 36, borderWidth: 2, borderColor: colors.border, borderRadius: 4, alignItems: "center", justifyContent: "center", backgroundColor: colors.surface, flexShrink: 0 },
   chipActive: { backgroundColor: colors.primary, borderColor: colors.secondary },

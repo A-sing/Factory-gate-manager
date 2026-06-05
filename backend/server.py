@@ -15,6 +15,7 @@ import jwt
 from bson import ObjectId  # noqa: F401 (kept for future use)
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Query, status
+from fastapi.responses import Response
 from fastapi.security import OAuth2PasswordBearer
 from motor.motor_asyncio import AsyncIOMotorClient
 from passlib.context import CryptContext
@@ -262,12 +263,14 @@ async def list_visitors(
     _: dict = Depends(get_current_user),
 ):
     q: dict = {}
-    if start or end:
+    s_dt = _parse_dt(start)
+    e_dt = _parse_dt(end)
+    if s_dt or e_dt:
         q["entry_datetime"] = {}
-        if start:
-            q["entry_datetime"]["$gte"] = datetime.fromisoformat(start)
-        if end:
-            q["entry_datetime"]["$lte"] = datetime.fromisoformat(end)
+        if s_dt:
+            q["entry_datetime"]["$gte"] = s_dt
+        if e_dt:
+            q["entry_datetime"]["$lte"] = e_dt
     if visitor_name:
         q["visitor_name"] = {"$regex": re.escape(visitor_name), "$options": "i"}
     if mobile_number:
@@ -466,12 +469,14 @@ async def attendance_report(
     _: dict = Depends(get_current_user),
 ):
     flt: dict = {}
-    if start or end:
+    s_dt = _parse_dt(start)
+    e_dt = _parse_dt(end)
+    if s_dt or e_dt:
         flt["check_in_time"] = {}
-        if start:
-            flt["check_in_time"]["$gte"] = datetime.fromisoformat(start)
-        if end:
-            flt["check_in_time"]["$lte"] = datetime.fromisoformat(end)
+        if s_dt:
+            flt["check_in_time"]["$gte"] = s_dt
+        if e_dt:
+            flt["check_in_time"]["$lte"] = e_dt
     if labour_id:
         flt["labour_id"] = {"$regex": re.escape(labour_id), "$options": "i"}
     if labour_name:
@@ -485,6 +490,183 @@ async def attendance_report(
         if c:
             rows = [r for r in rows if r.get("contractor_name") == c["contractor_name"]]
     return rows
+
+
+# ---------------------------------------------------------------------------
+# Report exports (Excel + PDF)
+# ---------------------------------------------------------------------------
+
+def _parse_dt(v: Optional[str]) -> Optional[datetime]:
+    if not v:
+        return None
+    dt = datetime.fromisoformat(v)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
+def _fmt_dt(v) -> str:
+    if not v:
+        return ""
+    if isinstance(v, str):
+        try:
+            v = datetime.fromisoformat(v.replace("Z", "+00:00"))
+        except Exception:
+            return v
+    if v.tzinfo is None:
+        v = v.replace(tzinfo=timezone.utc)
+    return v.strftime("%Y-%m-%d %H:%M")
+
+
+def _build_xlsx(headers: List[str], rows: List[List], title: str) -> bytes:
+    from io import BytesIO
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+    wb = Workbook()
+    ws = wb.active
+    ws.title = title[:30]
+    # Header row
+    ws.append(headers)
+    head_fill = PatternFill(start_color="09090B", end_color="09090B", fill_type="solid")
+    head_font = Font(bold=True, color="FFCC00")
+    for c in ws[1]:
+        c.fill = head_fill
+        c.font = head_font
+        c.alignment = Alignment(horizontal="center", vertical="center")
+    for r in rows:
+        ws.append(r)
+    # Auto width
+    for col in ws.columns:
+        max_len = max((len(str(c.value)) if c.value is not None else 0) for c in col)
+        ws.column_dimensions[col[0].column_letter].width = min(max_len + 2, 40)
+    buf = BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+def _build_pdf(headers: List[str], rows: List[List], title: str, subtitle: str = "") -> bytes:
+    from io import BytesIO
+    from reportlab.lib import colors as rl
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+
+    buf = BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=landscape(A4), title=title,
+                            leftMargin=24, rightMargin=24, topMargin=24, bottomMargin=24)
+    styles = getSampleStyleSheet()
+    story = [Paragraph(f"<b>DBS FACTORY — {title}</b>", styles["Title"])]
+    if subtitle:
+        story.append(Paragraph(subtitle, styles["Normal"]))
+    story.append(Spacer(1, 10))
+
+    table_data = [headers] + [[str(c) if c is not None else "" for c in r] for r in rows]
+    tbl = Table(table_data, repeatRows=1)
+    tbl.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), rl.HexColor("#09090B")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), rl.HexColor("#FFCC00")),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, 0), 9),
+        ("FONTSIZE", (0, 1), (-1, -1), 8),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [rl.HexColor("#FAFAFA"), rl.white]),
+        ("GRID", (0, 0), (-1, -1), 0.4, rl.HexColor("#A1A1AA")),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 5),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+    ]))
+    story.append(tbl)
+    doc.build(story)
+    return buf.getvalue()
+
+
+def _export_response(data: bytes, filename: str, fmt: str) -> Response:
+    media = (
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        if fmt == "xlsx"
+        else "application/pdf"
+    )
+    return Response(
+        content=data,
+        media_type=media,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@api_router.get("/visitors/export")
+async def export_visitors(
+    format: str = Query("xlsx", pattern="^(xlsx|pdf)$"),
+    start: Optional[str] = None,
+    end: Optional[str] = None,
+    _: dict = Depends(require_admin),
+):
+    flt: dict = {}
+    s_dt = _parse_dt(start)
+    e_dt = _parse_dt(end)
+    if s_dt or e_dt:
+        flt["entry_datetime"] = {}
+        if s_dt:
+            flt["entry_datetime"]["$gte"] = s_dt
+        if e_dt:
+            flt["entry_datetime"]["$lte"] = e_dt
+    cursor = db.visitors.find(flt, {"_id": 0}).sort("entry_datetime", -1)
+    headers = ["Visitor Name", "Mobile", "Purpose", "Gate", "Entry Date & Time"]
+    rows = []
+    async for d in cursor:
+        rows.append([
+            d.get("visitor_name", ""),
+            d.get("mobile_number") or "",
+            d.get("purpose", ""),
+            d.get("gate_name") or "",
+            _fmt_dt(d.get("entry_datetime")),
+        ])
+    sub = f"{start or 'all'} → {end or 'now'}  •  {len(rows)} records"
+    if format == "xlsx":
+        data = _build_xlsx(headers, rows, "Visitors")
+    else:
+        data = _build_pdf(headers, rows, "Visitor Report", sub)
+    ts = utcnow().strftime("%Y%m%d_%H%M")
+    return _export_response(data, f"visitors_{ts}.{format}", format)
+
+
+@api_router.get("/attendance/export")
+async def export_attendance(
+    format: str = Query("xlsx", pattern="^(xlsx|pdf)$"),
+    start: Optional[str] = None,
+    end: Optional[str] = None,
+    category: Optional[str] = None,
+    _: dict = Depends(require_admin),
+):
+    flt: dict = {}
+    s_dt = _parse_dt(start)
+    e_dt = _parse_dt(end)
+    if s_dt or e_dt:
+        flt["check_in_time"] = {}
+        if s_dt:
+            flt["check_in_time"]["$gte"] = s_dt
+        if e_dt:
+            flt["check_in_time"]["$lte"] = e_dt
+    if category:
+        flt["category"] = category
+    cursor = db.attendance.find(flt, {"_id": 0}).sort("check_in_time", -1)
+    headers = ["Labour ID", "Name", "Contractor", "Category", "Check In", "Check Out", "Total Hours"]
+    rows = []
+    async for d in cursor:
+        rows.append([
+            d.get("labour_id", ""),
+            d.get("labour_name", ""),
+            d.get("contractor_name") or "",
+            d.get("category", ""),
+            _fmt_dt(d.get("check_in_time")),
+            _fmt_dt(d.get("check_out_time")) if d.get("check_out_time") else "INSIDE",
+            d.get("total_hours") if d.get("total_hours") is not None else "",
+        ])
+    sub = f"{start or 'all'} → {end or 'now'}  •  {len(rows)} records"
+    if format == "xlsx":
+        data = _build_xlsx(headers, rows, "Labour Attendance")
+    else:
+        data = _build_pdf(headers, rows, "Labour Attendance Report", sub)
+    ts = utcnow().strftime("%Y%m%d_%H%M")
+    return _export_response(data, f"labour_attendance_{ts}.{format}", format)
 
 
 # ---------------------------------------------------------------------------

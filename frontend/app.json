@@ -54,7 +54,8 @@
         {
           "photosPermission": "Select labour photos from gallery"
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true
