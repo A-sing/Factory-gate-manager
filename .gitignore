@@ -86,3 +86,9 @@ android-sdk/
 credentials.json
 *.key
 .credentials
+
+# Firebase Admin credentials must remain server-only and untracked.
+/backend/secrets/
+**/*firebase-adminsdk*.json
+**/firebase-admin.json
+**/service-account*.json

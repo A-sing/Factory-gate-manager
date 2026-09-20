@@ -37,3 +37,20 @@ A production-ready factory gate management mobile app for security guards and ad
 
 ## Sample Data
 - Two contractors pre-seeded: Apex Engineering, Sunrise Constructions
+
+## Current request: Firestore connection (pending credentials)
+- User supplied Firebase project ID: `gate-manager-693fc`.
+- User confirms Firestore has been created. Remote access has not been verified.
+- Final explicit scope: connect Firestore first; Firebase Storage is not needed now.
+- Preserve existing Admin/Guard usernames, passwords, role flows, records, reports, and the light green/yellow interface with black text.
+- Do not enable Firebase Authentication or Firebase Storage as part of this request.
+- Backend currently still uses MongoDB; no Firestore code or data migration has been applied.
+- Configuration check found no Firebase Admin service-account secret, Google application credentials, or local Google ADC credentials.
+- Firebase Admin credentials must be configured server-side and excluded from source control. A project ID alone cannot authorize database access.
+- Existing photo data remains untouched pending an explicit migration strategy; do not move image payloads into Firestore as a substitute for object storage.
+
+### Priorities
+- P0: Obtain Firebase Admin backend credentials and verify access to the intended Firestore database before implementation.
+- P0: Implement Firestore record persistence, preserve current authentication behavior, migrate records without deleting source data, and validate Admin/Guard/report flows against the real database.
+- P1: Native-device QR/camera verification after database integration.
+- P2: Firebase photo storage and optional per-guard performance dashboard are out of the current scope.
