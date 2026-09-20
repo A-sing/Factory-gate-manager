@@ -54,3 +54,10 @@ A production-ready factory gate management mobile app for security guards and ad
 - P0: Implement Firestore record persistence, preserve current authentication behavior, migrate records without deleting source data, and validate Admin/Guard/report flows against the real database.
 - P1: Native-device QR/camera verification after database integration.
 - P2: Firebase photo storage and optional per-guard performance dashboard are out of the current scope.
+
+## Security audit requested after Firebase setup discussion
+- Read-only source/configuration audit completed; see `memory/security_audit.md`.
+- Deployed-environment audit remains unverified: no deployed URL/version was supplied and no live login tests were performed.
+- Findings: high-risk fixed-password account auto-seeding; medium-risk XLSX formula injection, unbounded photo payloads/responses, and missing token invalidation after password changes.
+- Additional hardening: login throttling, fail-closed JWT configuration, constrained CORS, PII minimization, and atomic check-in uniqueness.
+- No application code changes or security fixes applied. Remediation requires subsequent implementation and testing-agent verification before claiming fixes.
