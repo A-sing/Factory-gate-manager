@@ -13,7 +13,8 @@
       "infoPlist": {
         "NSCameraUsageDescription": "Capture visitor and labour photos at gate",
         "NSPhotoLibraryUsageDescription": "Select labour photos from gallery"
-      }
+      },
+      "bundleIdentifier": "com.emergent.factorygatemgmt.u645gq"
     },
     "android": {
       "adaptiveIcon": {
@@ -24,7 +25,8 @@
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE"
-      ]
+      ],
+      "package": "com.emergent.factorygatemgmt.u645gq"
     },
     "web": {
       "bundler": "metro",
